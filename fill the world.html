@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fill the World</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tailwind CSS configuration for dark mode - MUST COME AFTER TAILWIND CDN -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Enable dark mode based on 'dark' class on HTML element
+        }
+    </script>
+    <style>
+        /* Custom CSS for the canvas and body */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Light blue-gray background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Full viewport height */
+            margin: 0;
+            padding: 1rem; /* Add some padding around the container */
+            box-sizing: border-box; /* Include padding in element's total width and height */
+            overflow: hidden; /* Prevent body scrollbars */
+            transition: background-color 0.3s ease; /* Smooth transition for dark mode */
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* More rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); /* Softer shadow */
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 900px; /* Max width for larger screens */
+            gap: 0.5rem; /* Reduced gap between elements */
+            position: relative; /* For absolute positioning of buttons */
+            transition: background-color 0.3s ease, box-shadow 0.3s ease; /* Smooth transition for dark mode */
+        }
+        /* Adjust container max-width for larger screens */
+        @media (min-width: 1024px) { /* lg breakpoint */
+            .container {
+                max-width: 1200px; /* Increased max-width for more canvas real estate */
+            }
+        }
+
+        canvas {
+            background-color: #e2e8f0; /* Slightly darker canvas background */
+            border-radius: 1rem; /* Rounded corners for canvas */
+            display: block;
+            width: 100%; /* Make canvas responsive */
+            height: 650px; /* Increased height for desktop */
+            cursor: pointer;
+            border: 1px solid #cbd5e1; /* Subtle border */
+            touch-action: none; /* Prevents default touch actions like scrolling/zooming */
+            transition: background-color 0.3s ease, border-color 0.3s ease; /* Smooth transition for dark mode */
+        }
+        /* Positioning for the clear button */
+        #clearButton {
+            position: absolute;
+            top: 1.5rem; /* Adjust as needed for padding */
+            right: 1.5rem; /* Adjust as needed for padding */
+            z-index: 10; /* Ensure it's above other elements */
+            /* Responsive button sizing for PC */
+            padding: 0.75rem 1.5rem; /* Default size for smaller screens/mobile */
+            font-size: 1rem; /* Default font size */
+        }
+        /* Responsive button sizing for PC */
+        @media (min-width: 768px) { /* md breakpoint */
+            #clearButton {
+                padding: 0.5rem 1rem; /* Smaller padding for desktop */
+                font-size: 0.875rem; /* text-sm */
+            }
+        }
+        @media (min-width: 1024px) { /* lg breakpoint - can be same as md or even smaller */
+            #clearButton {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Sidebar styles */
+        #settingsSidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: 256px; /* w-64 in Tailwind */
+            background-color: #1f2937; /* gray-800 */
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+            transform: translateX(-100%); /* Hidden by default */
+            transition: transform 0.3s ease-in-out, background-color 0.3s ease, color 0.3s ease; /* Smooth transition for dark mode */
+            z-index: 20; /* Ensure it's above other content */
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto; /* Enable scrolling if content overflows */
+        }
+        #settingsSidebar.open {
+            transform: translateX(0); /* Visible when open */
+        }
+        /* Sidebar toggle button */
+        #toggleSidebarBtn {
+            position: fixed;
+            top: 1rem;
+            left: 1rem;
+            z-index: 21; /* Above sidebar */
+            /* Responsive button sizing for PC */
+            padding: 0.75rem 1.5rem; /* Default size for smaller screens/mobile */
+            font-size: 1rem; /* Default font size */
+        }
+        /* Responsive button sizing for PC */
+        @media (min-width: 768px) { /* md breakpoint */
+            #toggleSidebarBtn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem; /* text-sm */
+            }
+        }
+        @media (min-width: 1024px) { /* lg breakpoint - can be same as md or even smaller */
+            #toggleSidebarBtn {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+        /* Adjustments for smaller screens to prevent button overlap */
+        @media (max-width: 768px) {
+            canvas {
+                height: 400px; /* Adjust height for smaller screens */
+            }
+            #clearButton {
+                top: 1rem;
+                right: 1rem;
+                padding: 0.5rem 1rem; /* Smaller padding for button */
+                font-size: 0.875rem; /* Smaller font size */
+            }
+            #settingsSidebar {
+                width: 200px; /* Smaller width for mobile */
+            }
+            #toggleSidebarBtn {
+                top: 0.75rem;
+                left: 0.75rem;
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+        @media (max-width: 480px) {
+            canvas {
+                height: 300px; /* Further adjust height for very small screens */
+            }
+            .container {
+                padding: 1rem;
+            }
+            #clearButton {
+                top: 0.75rem;
+                right: 0.75rem;
+            }
+        }
+
+        /* General button styling for settings sidebar buttons */
+        .settings-button {
+            padding: 0.75rem 1.5rem; /* Default size for smaller screens/mobile */
+            font-size: 1rem; /* Default font size */
+            border-radius: 9999px; /* rounded-full */
+            font-weight: 600; /* font-semibold */
+            transition: background-color 0.3s ease, transform 0.1s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* shadow-md */
+            width: 100%; /* Ensure they take full width */
+            text-align: center;
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .settings-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem; /* text-sm */
+            }
+        }
+        @media (min-width: 1024px) { /* lg breakpoint */
+            .settings-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+            }
+        }
+
+
+        /* Dark mode overrides */
+        html.dark body {
+            background-color: #1a202c; /* Darker background */
+        }
+        html.dark .container {
+            background-color: #2d3748; /* Darker container */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); /* Darker shadow */
+        }
+        html.dark canvas {
+            background-color: #2a323e; /* Darker canvas */
+            border: 1px solid #4a5568; /* Darker border */
+        }
+        html.dark #settingsSidebar {
+            background-color: #0d1117; /* Even darker sidebar */
+            color: #e2e8f0; /* Light text for dark mode */
+        }
+        html.dark .text-gray-800 { color: #e2e8f0; } /* Main title */
+        html.dark .text-gray-600 { color: #cbd5e1; } /* Subtitle */
+        html.dark .text-gray-700 { color: #a0aec0; } /* Girls count label */
+
+        /* Adjust button colors for dark mode if they are gray (inactive) */
+        html.dark .bg-gray-500 { background-color: #4a5568; } /* Darker gray for inactive buttons */
+        html.dark .hover\:bg-gray-600:hover { background-color: #2d3748; }
+        html.dark .bg-gray-700 { background-color: #2d3748; }
+        html.dark .hover\:bg-gray-800:hover { background-color: #1a202c; }
+
+        /* Ensure active buttons retain their color in dark mode or have dark mode specific active colors */
+        html.dark .bg-green-500 { background-color: #10b981; } /* Tailwind green-500 */
+        html.dark .hover\:bg-green-600:hover { background-color: #059669; }
+        html.dark .bg-yellow-500 { background-color: #f59e0b; } /* Tailwind yellow-500 */
+        html.dark .hover\:bg-yellow-600:hover { background-color: #d97706; }
+        html.dark .bg-blue-500 { background-color: #3b82f6; } /* Tailwind blue-500 */
+        html.dark .hover\:bg-blue-600:hover { background-color: #2563eb; }
+        html.dark .bg-red-500 { background-color: #ef4444; } /* Tailwind red-500 */
+        html.dark .hover\:bg-red-600:hover { background-color: #dc2626; }
+        html.dark .bg-indigo-500 { background-color: #6366f1; } /* Tailwind indigo-500 for dark mode toggle ON */
+        html.dark .hover\:bg-indigo-600:hover { background-color: #4f46e5; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2 text-center">Fill the World with Girls!</h1>
+        <p class="text-gray-600 mb-1 text-center">Click and drag to add a line of girl emojis, or click to add one.</p>
+
+        <!-- Sidebar Toggle Button -->
+        <button id="toggleSidebarBtn" class="bg-gray-700 hover:bg-gray-800 text-white font-semibold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out">
+            Settings
+        </button>
+
+        <!-- Collapsible Sidebar -->
+        <div id="settingsSidebar" class="flex flex-col gap-4">
+            <h2 class="text-2xl font-bold text-white mb-4">Settings</h2>
+
+            <div class="flex flex-col gap-2">
+                <label for="girlSizeSlider" class="text-white text-sm">Girl Size: <span id="girlSizeValue">30</span>px</label>
+                <input type="range" id="girlSizeSlider" min="10" max="60" value="30" class="w-full h-2 bg-gray-600 rounded-lg appearance-none cursor-pointer">
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="toggleRepelBtn" class="settings-button bg-gray-500 hover:bg-gray-600 text-white">
+                    Repel Force (Cursor): OFF
+                </button>
+                <button id="toggleGirlsRepelBtn" class="settings-button bg-gray-500 hover:bg-gray-600 text-white">
+                    Girls Repel: OFF
+                </button>
+                <button id="toggleWraparoundBtn" class="settings-button bg-gray-500 hover:bg-gray-600 text-white">
+                    Wraparound: OFF
+                </button>
+            </div>
+
+            <div class="mt-4 border-t border-gray-600 pt-4">
+                <h3 class="text-lg font-bold text-red-300 mb-2">Experimental Features (Caution!)</h3>
+                <p class="text-sm text-gray-400 mb-2">Enabling this can cause the number of girls to grow exponentially, potentially leading to lag.</p>
+                <button id="toggleSpawnBtn" class="settings-button bg-gray-500 hover:bg-gray-600 text-white">
+                    Collision Spawning: OFF
+                </button>
+            </div>
+
+            <div class="mt-4 border-t border-gray-600 pt-4">
+                <h3 class="text-lg font-bold text-blue-300 mb-2">Debugging Information</h3>
+                <p class="text-base text-white">FPS: <span id="fpsCounter">0</span></p>
+            </div>
+
+            <div class="mt-4 border-t border-gray-600 pt-4">
+                <h3 class="text-lg font-bold text-white mb-2">Appearance</h3>
+                <button id="toggleDarkModeBtn" class="settings-button bg-gray-500 hover:bg-gray-600 text-white">
+                    Dark Mode: OFF
+                </button>
+            </div>
+        </div>
+
+        <div class="text-gray-700 text-lg font-semibold mb-4">Girls: <span id="girlCount">0</span></div>
+        <canvas id="girlWorldCanvas"></canvas>
+        <button id="clearButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-full shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+            Clear World
+        </button>
+    </div>
+
+    <script>
+        // Get the canvas element and its 2D rendering context
+        const canvas = document.getElementById('girlWorldCanvas');
+        const ctx = canvas.getContext('2d');
+        const girlCountSpan = document.getElementById('girlCount');
+        const clearButton = document.getElementById('clearButton');
+        const toggleRepelBtn = document.getElementById('toggleRepelBtn');
+        const toggleSpawnBtn = document.getElementById('toggleSpawnBtn');
+        const toggleGirlsRepelBtn = document.getElementById('toggleGirlsRepelBtn');
+        const toggleWraparoundBtn = document.getElementById('toggleWraparoundBtn');
+        const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
+        const settingsSidebar = document.getElementById('settingsSidebar');
+        const fpsCounterSpan = document.getElementById('fpsCounter');
+        const girlSizeSlider = document.getElementById('girlSizeSlider');
+        const girlSizeValueSpan = document.getElementById('girlSizeValue');
+        const toggleDarkModeBtn = document.getElementById('toggleDarkModeBtn'); // New dark mode button
+
+        // Array to store the positions and velocities of the girls
+        let girls = [];
+        let isDragging = false;
+        let lastX = 0;
+        let lastY = 0;
+        let nextGirlId = 0; // Unique ID for each girl for efficient collision checks
+
+        // --- Settings Flags (Default to OFF) ---
+        let isRepelActive = false;
+        let isCollisionSpawningActive = false;
+        let isGirlsRepelActive = false;
+        let isWraparoundActive = false;
+
+        // --- Cooldown for Collision Spawning ---
+        let lastSpawnTime = 0;
+        const SPAWN_COOLDOWN = 100; // Cooldown in milliseconds (e.g., 100ms)
+
+        // Repel force variables (from cursor)
+        let mouseX = -1;
+        let mouseY = -1;
+        const REPEL_RADIUS = 100;
+        const REPEL_STRENGTH = 0.05;
+
+        // Girls Repel Each Other variables
+        const GIRLS_REPEL_RADIUS_FACTOR = 3;
+        const GIRLS_REPEL_STRENGTH = 0.01;
+
+        // Constants for behavior and appearance
+        const MIN_DISTANCE_FOR_DRAG_ADD = 10;
+        let GIRL_SIZE = parseInt(girlSizeSlider.value);
+        let GIRL_RADIUS = GIRL_SIZE / 2;
+        let OVERLAP_THRESHOLD = GIRL_SIZE;
+        const MAX_INITIAL_SPEED = 0.75;
+        const MAX_ALLOWED_SPEED = 1.0;
+        const COEFFICIENT_OF_RESTITUTION = 1.0;
+
+        // Grid for spatial partitioning (optimization for collision detection)
+        let GRID_CELL_SIZE = GIRL_SIZE * 1.5;
+        let grid = [];
+        let numGridCols = 0;
+        let numGridRows = 0;
+
+        // FPS Counter variables
+        let frameCount = 0;
+        let lastFpsUpdateTime = 0;
+        const FPS_UPDATE_INTERVAL = 1000; // Update FPS every 1000ms (1 second)
+
+        // Array of diverse girl emojis
+        const girlEmojis = ['👧', '👧🏻', '👧🏼', '👧🏽', '👧🏾', '👧🏿', '👩', '👩🏻', '👩🏼', '👩🏽', '👩🏾', '👩🏿'];
+
+        // --- Audio Context and Sound Buffers ---
+        let audioContext;
+        const soundBuffers = {}; // Stores AudioBuffer objects, e.g., { 'spawn': [buffer1, buffer2], 'collision': [buffer3] }
+        const SOUND_COOLDOWNS = {
+            'spawn': 50,      // Cooldown for spawn sounds
+            'collision': 20,  // Cooldown for collision sounds
+            'wallBounce': 30, // Cooldown for wall bounce sounds
+            'clear': 200      // Cooldown for clear sound
+        };
+        const lastSoundPlayTime = {
+            'spawn': 0,
+            'collision': 0,
+            'wallBounce': 0,
+            'clear': 0
+        };
+
+        /**
+         * Loads an audio file from a URL and decodes it into an AudioBuffer.
+         * Stores the buffer in the soundBuffers object under the specified type.
+         * @param {string} url - The URL of the audio file.
+         * @param {string} type - The type of sound ('spawn', 'collision', 'wallBounce', 'clear').
+         * @param {number} index - The index within the sound type's array (for multiple sounds of same type).
+         */
+        async function loadSound(url, type, index) {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+                if (!soundBuffers[type]) {
+                    soundBuffers[type] = [];
+                }
+                soundBuffers[type][index] = audioBuffer;
+                console.log(`Loaded sound: ${url} for type ${type}[${index}]`);
+            } catch (error) {
+                console.error(`Error loading sound ${url}:`, error);
+            }
+        }
+
+        /**
+         * Plays a sound from the loaded buffers.
+         * @param {string} type - The type of sound to play ('spawn', 'collision', 'wallBounce', 'clear').
+         */
+        function playSound(type) {
+            if (!audioContext) return; // Ensure audio context is initialized
+
+            const currentTime = performance.now();
+            if (currentTime - lastSoundPlayTime[type] < SOUND_COOLDOWNS[type]) {
+                return; // On cooldown, do not play
+            }
+
+            const sounds = soundBuffers[type];
+            if (!sounds || sounds.length === 0) {
+                console.warn(`No sounds loaded for type: ${type}`);
+                return;
+            }
+
+            const randomBuffer = sounds[Math.floor(Math.random() * sounds.length)];
+            if (!randomBuffer) { // Check if the specific buffer is actually loaded
+                console.warn(`Random sound buffer for type ${type} is undefined.`);
+                return;
+            }
+
+            const source = audioContext.createBufferSource();
+            source.buffer = randomBuffer;
+            source.connect(audioContext.destination);
+            source.start(0); // Play immediately
+
+            lastSoundPlayTime[type] = currentTime; // Update last play time
+        }
+
+        // --- End Audio Context and Sound Buffers ---
+
+
+        // Function to update the girl counter display
+        function updateGirlCountDisplay() {
+            girlCountSpan.textContent = girls.length;
+        }
+
+        // Function to clamp the speed of a girl to MAX_ALLOWED_SPEED
+        function clampGirlSpeed(girl) {
+            const currentSpeed = Math.sqrt(girl.dx * girl.dx + girl.dy * girl.dy);
+            if (currentSpeed > MAX_ALLOWED_SPEED) {
+                const scale = MAX_ALLOWED_SPEED / currentSpeed;
+                girl.dx *= scale;
+                girl.dy *= scale;
+            }
+        }
+
+        // Function to draw all girls on the canvas
+        function drawGirls() {
+            // Clear the entire canvas before redrawing
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Set font for the emoji (fixed size for all girls, based on current GIRL_SIZE)
+            ctx.font = `${GIRL_SIZE}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Draw each girl from the array
+            girls.forEach(girl => {
+                ctx.fillText(girl.emoji, girl.x, girl.y);
+            });
+
+            updateGirlCountDisplay(); // Update the counter after drawing
+        }
+
+        // Function to add a girl with overlap prevention and initial random velocity
+        function addGirl(x, y) {
+            // Check for overlap with existing girls
+            let newX = x;
+            let newY = y;
+            let overlapped = true;
+            let attempts = 0;
+            const maxAttempts = 10; // Prevent infinite loop for initial placement
+
+            while (overlapped && attempts < maxAttempts) {
+                overlapped = false;
+                for (let i = 0; i < girls.length; i++) {
+                    const existingGirl = girls[i];
+                    // Collision check for initial placement based on current GIRL_SIZE
+                    const distance = Math.sqrt(
+                        Math.pow(newX - existingGirl.x, 2) + Math.pow(newY - existingGirl.y, 2)
+                    );
+                    if (distance < OVERLAP_THRESHOLD) {
+                        // If overlapped, try a slightly random offset
+                        newX = x + (Math.random() - 0.5) * OVERLAP_THRESHOLD * 2;
+                        newY = y + (Math.random() - 0.5) * OVERLAP_THRESHOLD * 2;
+                        overlapped = true;
+                        break; // Check against all girls again with new position
+                    }
+                }
+                attempts++;
+            }
+
+            // Assign random initial velocities, clamped by MAX_INITIAL_SPEED
+            const dx = (Math.random() - 0.5) * MAX_INITIAL_SPEED * 2; // Random between -MAX_INITIAL_SPEED and MAX_INITIAL_SPEED
+            const dy = (Math.random() - 0.5) * MAX_INITIAL_SPEED * 2; // Random between -MAX_INITIAL_SPEED and MAX_INITIAL_SPEED
+
+            // Select a random emoji from the predefined array
+            const randomEmoji = girlEmojis[Math.floor(Math.random() * girlEmojis.length)];
+
+            girls.push({
+                id: nextGirlId++, // Assign unique ID
+                x: newX,
+                y: newY,
+                dx: dx,
+                dy: dy,
+                emoji: randomEmoji,
+                radius: GIRL_RADIUS, // All girls have the current global radius
+            });
+
+            playSound('spawn'); // Play spawn sound
+        }
+
+        // Mouse/Touch event handlers for adding girls
+        canvas.addEventListener('pointerdown', (event) => {
+            isDragging = true;
+            const rect = canvas.getBoundingClientRect();
+            lastX = event.clientX - rect.left;
+            lastY = event.clientY - rect.top;
+            addGirl(lastX, lastY); // Add a girl at the initial click point
+            event.preventDefault(); // Prevent default browser actions (like scrolling/zooming)
+        });
+
+        canvas.addEventListener('pointermove', (event) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = event.clientX - rect.left;
+            mouseY = event.clientY - rect.top;
+
+            if (!isDragging) return;
+
+            const currentX = mouseX;
+            const currentY = mouseY;
+
+            // Calculate distance from last point
+            const distance = Math.sqrt(
+                Math.pow(currentX - lastX, 2) + Math.pow(currentY - lastY, 2)
+            );
+
+            // Add a new girl only if moved a certain distance
+            if (distance > MIN_DISTANCE_FOR_DRAG_ADD) {
+                addGirl(currentX, currentY);
+                lastX = currentX;
+                lastY = currentY;
+            }
+            event.preventDefault(); // Prevent default browser actions (like scrolling/zooming)
+        });
+
+        canvas.addEventListener('pointerup', () => {
+            isDragging = false;
+        });
+
+        // Reset mouse position when leaving canvas to stop repel force
+        canvas.addEventListener('pointerleave', () => {
+            mouseX = -1;
+            mouseY = -1;
+        });
+
+        // Function to clear the canvas and reset the girls array
+        clearButton.addEventListener('click', () => {
+            girls = []; // Clear the array
+            nextGirlId = 0; // Reset ID counter
+            updateGirlCountDisplay(); // Update the counter
+            playSound('clear'); // Play clear sound
+        });
+
+        // Toggle Repel Force (Cursor) button
+        toggleRepelBtn.addEventListener('click', () => {
+            isRepelActive = !isRepelActive;
+            toggleRepelBtn.textContent = `Repel Force (Cursor): ${isRepelActive ? 'ON' : 'OFF'}`;
+            toggleRepelBtn.classList.toggle('bg-green-500', isRepelActive);
+            toggleRepelBtn.classList.toggle('hover:bg-green-600', isRepelActive);
+            toggleRepelBtn.classList.toggle('bg-gray-500', !isRepelActive);
+            toggleRepelBtn.classList.toggle('hover:bg-gray-600', !isRepelActive);
+        });
+
+        // Toggle Girls Repel Each Other button
+        toggleGirlsRepelBtn.addEventListener('click', () => {
+            isGirlsRepelActive = !isGirlsRepelActive;
+            toggleGirlsRepelBtn.textContent = `Girls Repel: ${isGirlsRepelActive ? 'ON' : 'OFF'}`;
+            toggleGirlsRepelBtn.classList.toggle('bg-green-500', isGirlsRepelActive);
+            toggleGirlsRepelBtn.classList.toggle('hover:bg-green-600', isGirlsRepelActive);
+            toggleGirlsRepelBtn.classList.toggle('bg-gray-500', !isGirlsRepelActive);
+            toggleGirlsRepelBtn.classList.toggle('hover:bg-gray-600', !isGirlsRepelActive);
+        });
+
+        // Toggle Wraparound button
+        toggleWraparoundBtn.addEventListener('click', () => {
+            isWraparoundActive = !isWraparoundActive;
+            toggleWraparoundBtn.textContent = `Wraparound: ${isWraparoundActive ? 'ON' : 'OFF'}`;
+            toggleWraparoundBtn.classList.toggle('bg-blue-500', isWraparoundActive);
+            toggleWraparoundBtn.classList.toggle('hover:bg-blue-600', isWraparoundActive);
+            toggleWraparoundBtn.classList.toggle('bg-gray-500', !isWraparoundActive);
+            toggleWraparoundBtn.classList.toggle('hover:bg-gray-600', !isWraparoundActive);
+        });
+
+        // Toggle Collision Spawning button
+        toggleSpawnBtn.addEventListener('click', () => {
+            isCollisionSpawningActive = !isCollisionSpawningActive;
+            toggleSpawnBtn.textContent = `Collision Spawning: ${isCollisionSpawningActive ? 'ON' : 'OFF'}`;
+            toggleSpawnBtn.classList.toggle('bg-yellow-500', isCollisionSpawningActive);
+            toggleSpawnBtn.classList.toggle('hover:bg-yellow-600', isCollisionSpawningActive);
+            toggleSpawnBtn.classList.toggle('bg-gray-500', !isCollisionSpawningActive);
+            toggleSpawnBtn.classList.toggle('hover:bg-gray-600', !isCollisionSpawningActive);
+        });
+
+        // Toggle Sidebar button
+        toggleSidebarBtn.addEventListener('click', () => {
+            settingsSidebar.classList.toggle('open');
+        });
+
+        // Close sidebar if clicking outside it (good UX)
+        document.addEventListener('click', (event) => {
+            // Check if the click was outside the sidebar AND outside the toggle button AND the sidebar is open
+            if (!settingsSidebar.contains(event.target) && !toggleSidebarBtn.contains(event.target) && settingsSidebar.classList.contains('open')) {
+                settingsSidebar.classList.remove('open');
+            }
+        });
+
+        // Girl Size Slider event listener
+        girlSizeSlider.addEventListener('input', () => {
+            GIRL_SIZE = parseInt(girlSizeSlider.value);
+            GIRL_RADIUS = GIRL_SIZE / 2;
+            OVERLAP_THRESHOLD = GIRL_SIZE; // Update overlap threshold
+            GRID_CELL_SIZE = GIRL_SIZE * 1.5; // Update grid cell size based on new girl size
+            girlSizeValueSpan.textContent = GIRL_SIZE; // Update displayed value
+        });
+
+        // Dark Mode Toggle Function
+        function applyTheme(theme) {
+            const htmlElement = document.documentElement;
+            if (theme === 'dark') {
+                htmlElement.classList.add('dark');
+                toggleDarkModeBtn.textContent = 'Dark Mode: ON';
+                toggleDarkModeBtn.classList.remove('bg-gray-500', 'hover:bg-gray-600');
+                toggleDarkModeBtn.classList.add('bg-indigo-500', 'hover:bg-indigo-600');
+            } else {
+                htmlElement.classList.remove('dark');
+                toggleDarkModeBtn.textContent = 'Dark Mode: OFF';
+                toggleDarkModeBtn.classList.remove('bg-indigo-500', 'hover:bg-indigo-600');
+                toggleDarkModeBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            }
+            localStorage.setItem('theme', theme); // Save preference
+        }
+
+        // Toggle Dark Mode button listener
+        toggleDarkModeBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+        });
+
+
+        // Function to resize the canvas when the window is resized
+        function resizeCanvas() {
+            // Set canvas dimensions to match its CSS dimensions
+            // This is crucial for correct drawing coordinates
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            // Recalculate grid dimensions
+            numGridCols = Math.ceil(canvas.width / GRID_CELL_SIZE);
+            numGridRows = Math.ceil(canvas.height / GRID_CELL_SIZE);
+        }
+
+        // Function to initialize and populate the spatial grid
+        function populateGrid() {
+            // Clear the grid for the current frame
+            grid = Array(numGridRows).fill(null).map(() => Array(numGridCols).fill(null).map(() => []));
+
+            girls.forEach(girl => {
+                // Determine the grid cell the girl occupies
+                const col = Math.floor(girl.x / GRID_CELL_SIZE);
+                const row = Math.floor(girl.y / GRID_CELL_SIZE);
+
+                // Add the girl to the relevant cell, clamping to grid boundaries
+                if (row >= 0 && row < numGridRows && col >= 0 && col < numGridCols) {
+                    grid[row][col].push(girl);
+                }
+            });
+        }
+
+        // The main animation loop
+        function animate(currentTime) {
+            // Adjust canvas dimensions to match display size (for responsiveness)
+            // This is done at the start of each frame to ensure it's always correct
+            const rect = canvas.getBoundingClientRect();
+            if (canvas.width !== rect.width || canvas.height !== rect.height) {
+                resizeCanvas(); // Only resize if dimensions have actually changed
+            }
+
+            // --- FPS Counter Update ---
+            frameCount++;
+            if (currentTime - lastFpsUpdateTime >= FPS_UPDATE_INTERVAL) {
+                const fps = (frameCount / (currentTime - lastFpsUpdateTime)) * 1000;
+                fpsCounterSpan.textContent = fps.toFixed(0); // Display as integer
+                frameCount = 0;
+                lastFpsUpdateTime = currentTime;
+            }
+
+            // Update positions for each girl and handle wall interactions (bounce or wraparound)
+            girls.forEach(girl => {
+                // Apply repel force from mouse/touch if active
+                if (isRepelActive && mouseX !== -1 && mouseY !== -1) {
+                    const dxMouse = girl.x - mouseX;
+                    const dyMouse = girl.y - mouseY;
+                    const distanceMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+
+                    if (distanceMouse < REPEL_RADIUS && distanceMouse > 0) {
+                        const force = REPEL_STRENGTH * (1 - distanceMouse / REPEL_RADIUS); // Force decreases with distance
+                        const angle = Math.atan2(dyMouse, dxMouse);
+                        girl.dx += Math.cos(angle) * force;
+                        girl.dy += Math.sin(angle) * force;
+                        clampGirlSpeed(girl); // Clamp speed after applying force
+                    }
+                }
+
+                girl.x += girl.dx;
+                girl.y += girl.dy;
+
+                // --- Wall Interaction Logic (Bounce or Wraparound) ---
+                if (isWraparoundActive) {
+                    // Wrap around horizontally
+                    if (girl.x + GIRL_RADIUS < 0) { // If entirely off left side
+                        girl.x = canvas.width + GIRL_RADIUS;
+                    } else if (girl.x - GIRL_RADIUS > canvas.width) { // If entirely off right side
+                        girl.x = 0 - GIRL_RADIUS;
+                    }
+
+                    // Wrap around vertically
+                    if (girl.y + GIRL_RADIUS < 0) { // If entirely off top side
+                        girl.y = canvas.height + GIRL_RADIUS;
+                    } else if (girl.y - GIRL_RADIUS > canvas.height) { // If entirely off bottom side
+                        girl.y = 0 - GIRL_RADIUS;
+                    }
+                } else {
+                    // Bounce off horizontal walls
+                    if (girl.x + GIRL_RADIUS > canvas.width || girl.x - GIRL_RADIUS < 0) {
+                        if (girl.x + GIRL_RADIUS > canvas.width) {
+                            girl.x = canvas.width - GIRL_RADIUS;
+                        } else if (girl.x - GIRL_RADIUS < 0) {
+                            girl.x = GIRL_RADIUS;
+                        }
+                        // Only play sound if it was moving towards the wall
+                        if (Math.sign(girl.dx) !== Math.sign(girl.x - (canvas.width / 2))) {
+                            playSound('wallBounce');
+                        }
+                        girl.dx *= -1;
+                        clampGirlSpeed(girl); // Clamp speed after wall bounce
+                    }
+
+                    // Bounce off vertical walls
+                    if (girl.y + GIRL_RADIUS > canvas.height || girl.y - GIRL_RADIUS < 0) {
+                        if (girl.y + GIRL_RADIUS > canvas.height) {
+                            girl.y = canvas.height - GIRL_RADIUS;
+                        } else if (girl.y - GIRL_RADIUS < 0) {
+                            girl.y = GIRL_RADIUS;
+                        }
+                        // Only play sound if it was moving towards the wall
+                        if (Math.sign(girl.dy) !== Math.sign(girl.y - (canvas.height / 2))) {
+                            playSound('wallBounce');
+                        }
+                        girl.dy *= -1;
+                        clampGirlSpeed(girl); // Clamp speed after wall bounce
+                    }
+                }
+            });
+
+            // Populate the grid with current girl positions
+            populateGrid();
+
+            // Handle collisions between girls using the grid
+            for (let i = 0; i < girls.length; i++) {
+                const girl1 = girls[i];
+
+                // Determine the primary cell of girl1
+                const col = Math.floor(girl1.x / GRID_CELL_SIZE);
+                const row = Math.floor(girl1.y / GRID_CELL_SIZE);
+
+                // Check current cell and its 8 neighbors
+                for (let rOffset = -1; rOffset <= 1; rOffset++) {
+                    for (let cOffset = -1; cOffset <= 1; cOffset++) {
+                        const neighborRow = row + rOffset;
+                        const neighborCol = col + cOffset;
+
+                        // Ensure neighbor cell is within bounds
+                        if (neighborRow >= 0 && neighborRow < numGridRows &&
+                            neighborCol >= 0 && neighborCol < numGridCols) {
+
+                            const potentialColliders = grid[neighborRow][neighborCol];
+
+                            for (let k = 0; k < potentialColliders.length; k++) {
+                                const girl2 = potentialColliders[k];
+
+                                // Avoid self-collision and duplicate checks (girl1 vs girl2 already checked as girl2 vs girl1)
+                                if (girl1.id === girl2.id) continue;
+                                if (girl1.id > girl2.id) continue; // Ensures each pair is checked only once
+
+                                const dx = girl2.x - girl1.x;
+                                const dy = girl2.y - girl1.y;
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                                // --- Girls Repel Each Other Logic ---
+                                if (isGirlsRepelActive && distance < (GIRL_RADIUS * GIRLS_REPEL_RADIUS_FACTOR) && distance > 0) {
+                                    const repelForce = GIRLS_REPEL_STRENGTH * (1 - distance / (GIRL_RADIUS * GIRLS_REPEL_RADIUS_FACTOR));
+                                    const angle = Math.atan2(dy, dx);
+                                    girl1.dx -= Math.cos(angle) * repelForce;
+                                    girl1.dy -= Math.sin(angle) * repelForce;
+                                    girl2.dx += Math.cos(angle) * repelForce;
+                                    girl2.dy += Math.sin(angle) * repelForce;
+                                    clampGirlSpeed(girl1);
+                                    clampGirlSpeed(girl2);
+                                }
+
+                                // If collision detected and they are overlapping
+                                // Use fixed GIRL_RADIUS for collision check
+                                if (distance < GIRL_RADIUS * 2) {
+                                    // Calculate overlap and move them apart to prevent sticking
+                                    const overlap = (GIRL_RADIUS * 2) - distance;
+                                    const normalX = dx / distance;
+                                    const normalY = dy / distance;
+
+                                    // Move girls apart by half the overlap
+                                    girl1.x -= normalX * overlap / 2;
+                                    girl1.y -= normalY * overlap / 2;
+                                    girl2.x += normalX * overlap / 2;
+                                    girl2.y += normalY * overlap / 2;
+
+                                    // Relative velocity
+                                    const relativeDx = girl2.dx - girl1.dx;
+                                    const relativeDy = girl2.dy - girl1.dy;
+
+                                    // Velocity along the normal
+                                    const velAlongNormal = relativeDx * normalX + relativeDy * normalY;
+
+                                    // Only resolve if they are moving towards each other
+                                    if (velAlongNormal < 0) {
+                                        // Play collision sound
+                                        playSound('collision');
+
+                                        // Impulse scalar with coefficient of restitution (1.0 for perfect elastic collision)
+                                        const impulse = -(1 + COEFFICIENT_OF_RESTITUTION) * velAlongNormal;
+
+                                        // Apply impulse to velocities
+                                        girl1.dx -= impulse * normalX;
+                                        girl1.dy -= impulse * normalY;
+                                        girl2.dx += impulse * normalX;
+                                        girl2.dy += impulse * normalY;
+
+                                        // Clamp speeds after collision to prevent runaway acceleration
+                                        clampGirlSpeed(girl1);
+                                        clampGirlSpeed(girl2);
+
+                                        // Conditional spawning on collision with cooldown
+                                        if (isCollisionSpawningActive) {
+                                            const currentTimeForSpawn = performance.now(); // Get current time in milliseconds
+                                            if (currentTimeForSpawn - lastSpawnTime > SPAWN_COOLDOWN) {
+                                                const spawnX = (girl1.x + girl2.x) / 2 + (Math.random() - 0.5) * 20;
+                                                const spawnY = (girl1.y + girl2.y) / 2 + (Math.random() - 0.5) * 20;
+                                                addGirl(spawnX, spawnY); // addGirl already plays spawn sound
+                                                lastSpawnTime = currentTimeForSpawn; // Update last spawn time
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            drawGirls(); // Redraw all girls in their new positions
+            requestAnimationFrame(animate); // Request the next frame
+        }
+
+        // Initial setup when the page loads
+        window.onload = function () {
+            // Initialize AudioContext on user gesture to bypass autoplay policies
+            const initAudioContext = () => {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const sampleRate = audioContext.sampleRate; // Get the sample rate from the context
+
+                    // --- IMPORTANT: REPLACE THESE WITH YOUR ACTUAL AUDIO FILE PATHS ---
+                    // Example: loadSound('./sounds/pop1.wav', 'spawn', 0);
+                    // Example: loadSound('./sounds/pop2.wav', 'spawn', 1);
+                    // Example: loadSound('./sounds/thud1.mp3', 'collision', 0);
+                    // Example: loadSound('./sounds/boing.wav', 'wallBounce', 0);
+                    // Example: loadSound('./sounds/sweep.mp3', 'clear', 0);
+
+                    // Placeholder calls for various sound types.
+                    // You would replace these with actual calls to load your files.
+                    // For example, if you have two spawn sounds:
+                    // loadSound('path/to/your/spawn_sound_1.wav', 'spawn', 0);
+                    // loadSound('path/to/your/spawn_sound_2.wav', 'spawn', 1);
+                    // And for collision:
+                    // loadSound('path/to/your/collision_sound_1.wav', 'collision', 0);
+                    // And so on for wallBounce and clear.
+
+                    // Since we removed programmatic generation, for now, these will be empty
+                    // until you provide actual URLs.
+                    // You might want to add some default simple sounds if no URLs are provided,
+                    // or ensure your hosting setup has these files.
+                    console.log("Audio loading setup. Please replace placeholder URLs with your actual sound file paths.");
+                }
+                // Remove event listeners after context is initialized
+                canvas.removeEventListener('pointerdown', initAudioContext);
+                clearButton.removeEventListener('click', initAudioContext);
+                toggleSidebarBtn.removeEventListener('click', initAudioContext);
+                toggleDarkModeBtn.removeEventListener('click', initAudioContext); // Also for dark mode button
+            };
+
+            // Attach event listeners to initialize audio context on first user interaction
+            canvas.addEventListener('pointerdown', initAudioContext, { once: true });
+            clearButton.addEventListener('click', initAudioContext, { once: true });
+            toggleSidebarBtn.addEventListener('click', initAudioContext, { once: true });
+            toggleDarkModeBtn.addEventListener('click', initAudioContext, { once: true }); // Also for dark mode button
+
+
+            resizeCanvas(); // Set initial canvas size and grid dimensions
+            // Initialize lastFpsUpdateTime with current time
+            lastFpsUpdateTime = performance.now();
+            animate(lastFpsUpdateTime); // Start the animation loop
+            updateGirlCountDisplay(); // Initial count is 0
+
+            // Theme initialization
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                applyTheme('dark'); // Default to dark if system prefers it
+            } else {
+                applyTheme('light'); // Default to light
+            }
+
+            // Set initial button states (all OFF by default)
+            toggleRepelBtn.textContent = `Repel Force (Cursor): OFF`;
+            toggleRepelBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            toggleRepelBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+
+            toggleGirlsRepelBtn.textContent = `Girls Repel: OFF`;
+            toggleGirlsRepelBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            toggleGirlsRepelBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+
+            toggleWraparoundBtn.textContent = `Wraparound: OFF`;
+            toggleWraparoundBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            toggleWraparoundBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+
+            toggleSpawnBtn.textContent = `Collision Spawning: OFF`;
+            toggleSpawnBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
+            toggleSpawnBtn.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+
+            // Set initial slider value display
+            girlSizeValueSpan.textContent = GIRL_SIZE;
+        }
+
+        // Add event listener for window resize
+        window.addEventListener('resize', resizeCanvas);
+    </script>
+</body>
+</html>
